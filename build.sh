@@ -40,7 +40,7 @@ change_svg_color() {
 convert_svg_to_png() {
     local src_dir="$1"
     local out_dir="$2"
-    local sizes="24 48"
+    local sizes="24 32 48"
 
     [ -d "$src_dir" ] || exit 1
     [ -d "$out_dir" ] || mkdir -p "$out_dir"
