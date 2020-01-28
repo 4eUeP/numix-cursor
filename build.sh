@@ -13,6 +13,11 @@ DEFAULT_BG_COLOR="#e8e8e8"
 DEFAULT_BORDER_COLOR="#2d2d2d"
 DEFAULT_PAGE_COLOR="#ffffff"
 
+COLOR="${COLOR:-$DEFAULT_COLOR}"
+BG_COLOR="${BG_COLOR:-$DEFAULT_BG_COLOR}"
+BORDER_COLOR="${BORDER_COLOR:-$DEFAULT_BORDER_COLOR}"
+PAGE_COLOR="${PAGE_COLOR:-$DEFAULT_PAGE_COLOR}"
+
 
 validate_hexcolor() {
     local color="$1"
@@ -25,15 +30,36 @@ validate_hexcolor() {
 }
 
 
-change_svg_color() {
-    local old_color="$1"
-    local new_color="$2"
-    local file="$3"
-    validate_hexcolor $old_color
-    validate_hexcolor $new_color
+validate_hexcolor $COLOR
+validate_hexcolor $BG_COLOR
+validate_hexcolor $BORDER_COLOR
+validate_hexcolor $PAGE_COLOR
 
-    echo "Replacing $old_color with $new_color in $file"
-    sed -i "s/$old_color/$new_color/g" "$file"
+
+change_svg_color() {
+    local src_dir="$1"
+
+    local args
+    gen_args() {
+        echo -e "> find all .svg files under $src_dir ..."
+        for file in "$src_dir"/*.svg; do
+            [ -f "$file" ] || continue
+            args="${args}$file\t"
+        done
+    }
+    gen_args
+
+    local re_color="$([ "$DEFAULT_COLOR" == "$COLOR" ] ||
+        echo "s/([^\x0])$DEFAULT_COLOR([^\x0])/\1\x0$COLOR\x0\2/g;")"
+    local re_bg_color="$([ "$DEFAULT_BG_COLOR" == "$BG_COLOR" ] ||
+        echo "s/([^\x0])$DEFAULT_BG_COLOR([^\x0])/\1\x0$BG_COLOR\x0\2/g;")"
+    local re_border_color="$([ "$DEFAULT_BORDER_COLOR" == "$BORDER_COLOR" ] ||
+        echo "s/([^\x0])$DEFAULT_BORDER_COLOR([^\x0])/\1\x0$BORDER_COLOR\x0\2/g;")"
+    local re_clean="s/\x0//g"
+    local cmd=$(printf 'sed -i -E "%s %s %s %s" "$0"' $re_color $re_bg_color $re_border_color $re_clean)
+    echo "> command: $cmd"
+    printf "$args" | xargs -r -d '\t' -n 1 -P "$(nproc)" sh -c "$cmd"
+    echo -e "Changing color... DONE"
 }
 
 
@@ -100,6 +126,7 @@ create_aliases() {
 # copy all source files because we may edit it (change color...).
 mkdir -p $BUILD_DIR && cp -r $SRC_DIR/numix_cursor $SRC_DIR/config $BUILD_DIR/
 
+change_svg_color "$BUILD_DIR/numix_cursor"
 convert_svg_to_png "$BUILD_DIR/numix_cursor" "$BUILD_DIR/build"
 convert_to_x11cursor "$BUILD_DIR/build" "$BUILD_DIR/config" "$BUILD_DIR/cursors"
 create_aliases "$BUILD_DIR/cursors"
